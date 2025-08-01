@@ -60,11 +60,44 @@ def main():
     hist_df.to_csv(CORR_HISTORY_FILE, index=False)
     print("[INFO] Correlation history updated.")
 
-    # 6️⃣ Plot price vs sentiment
+   # 6️⃣ Plot price vs sentiment
     plot_price_sentiment(merged_df)
 
     # 7️⃣ Plot correlation history trend
     plot_correlation_history(hist_df)
+
+def plot_price_sentiment_correlation(merged_df):
+    """
+    Plots Sentiment Score vs Price for the merged dataset
+    to visually see intraday correlation.
+    """
+    import matplotlib.pyplot as plt
+    import os
+    import pandas as pd
+
+    if "sentiment" not in merged_df.columns:
+        raise ValueError("Merged dataset does not have a 'sentiment' column.")
+
+    # Make sure datetime is in datetime format
+    merged_df["datetime"] = pd.to_datetime(merged_df["datetime"], errors="coerce")
+
+    plt.figure(figsize=(10, 5))
+    plt.scatter(merged_df["sentiment"], merged_df["close"], alpha=0.5, color="purple")
+    plt.title("Sentiment vs Price (Intraday)")
+    plt.xlabel("Sentiment Score")
+    plt.ylabel("Price (Close)")
+    plt.grid(True)
+
+    # Calculate and annotate correlation
+    corr = merged_df["sentiment"].corr(merged_df["close"])
+    plt.annotate(f"Correlation = {corr:.3f}", xy=(0.05, 0.95), xycoords="axes fraction",
+                 fontsize=12, ha="left", va="top", bbox=dict(boxstyle="round", fc="w"))
+
+    os.makedirs("charts", exist_ok=True)
+    chart_path = "charts/sentiment_price_intraday.png"
+    plt.savefig(chart_path)
+    print(f"[INFO] Sentiment vs Price chart saved to {chart_path}")
+    plt.close()
 
 
 def plot_price_sentiment(merged_df):

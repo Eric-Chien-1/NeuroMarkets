@@ -1,4 +1,4 @@
-# 🧠 NeuroMarkets — News & Price Action Correlation
+# 🧠 SentimentMarketAnalysis — News & Price Action Correlation
 
 NeuroMarkets is a Python-based research tool that correlates **financial news sentiment** with **market price action** (e.g., S&P 500 futures) in near real-time.
 

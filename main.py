@@ -22,13 +22,13 @@ log = logging.getLogger(__name__)
 # Tickers for major index futures
 # Tickers for specific companies instead of index futures
 INDEX_TICKERS = {
-    "Ford": "F",           # Ford Motor CompanyS
+    "Ford": "F",           # Ford Motor Company
     "Microsoft": "MSFT",   # Microsoft
     "Meta": "META"         # Meta Platforms
 }
 
 def main():
-    API_KEY = ""  # Replace with your NewsAPI key
+    API_KEY = "815b8274e8f94a5db950c060865bb3db"  # Replace with your NewsAPI key
     DAYS = 30
     CORR_HISTORY_DIR = "data/historical_correlations"
     CHARTS_DIR = "charts"

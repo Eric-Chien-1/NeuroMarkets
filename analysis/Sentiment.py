@@ -21,10 +21,9 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
     if "title" not in news_df.columns:
         raise ValueError("News DataFrame must have a 'title' column for sentiment analysis.")
 
-    # Calculate sentiment scores
+    # Calculate TextBlob polarity (-1.0 to 1.0)
     scores = [TextBlob(str(t)).sentiment.polarity for t in news_df["title"].fillna("")]
     news_df["sentiment"] = pd.Series(scores).round(3)
-    news_df["sentiment_score"] = news_df["sentiment"]
 
     # Ensure datetime format
     if "datetime" in news_df.columns:
@@ -36,16 +35,29 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
 
     def classify_row(row):
         title = row["title"]
-        sentiment = row["sentiment_score"]
-        if matches_keywords(title, ECONOMIC_EVENT_KEYWORDS):
-            return "MACRO_EVENT"
-        elif sentiment >= 0.5 or matches_keywords(title, POSITIVE_KEYWORDS):
-            return "BULLISH"
-        elif sentiment <= -0.5 or matches_keywords(title, NEGATIVE_KEYWORDS):
-            return "BEARISH"
-        return None
+        sentiment = row["sentiment"]
 
-    news_df["category"] = news_df.apply(classify_row, axis=1)
+        # Detect macro events
+        if matches_keywords(title, ECONOMIC_EVENT_KEYWORDS):
+            return "MACRO_EVENT", 0  # Neutral for macro news by default
+
+        # Bullish classification
+        if sentiment >= 0.5 or matches_keywords(title, POSITIVE_KEYWORDS):
+            return "BULLISH", 1
+
+        # Bearish classification
+        if sentiment <= -0.5 or matches_keywords(title, NEGATIVE_KEYWORDS):
+            return "BEARISH", -1
+
+        # Neutral
+        return "NEUTRAL", 0
+
+    # Apply classification
+    classified = news_df.apply(classify_row, axis=1)
+    news_df["category"] = classified.apply(lambda x: x[0])
+    news_df["sentiment_score"] = classified.apply(lambda x: x[1])
+
+    # Keep only market-moving or macro news
     filtered_df = news_df[news_df["category"].notnull()].copy()
 
     # Summary logging
@@ -55,20 +67,16 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
     # Format datetime for clean display
     filtered_df["datetime"] = filtered_df["datetime"].dt.strftime("%Y-%m-%d %H:%M")
 
-    # Auto-adjust spacing
+    # Log table view
     col_widths = {
         "datetime": max(filtered_df["datetime"].str.len().max(), len("datetime")),
         "category": max(filtered_df["category"].str.len().max(), len("category")),
         "sentiment_score": max(filtered_df["sentiment_score"].astype(str).str.len().max(), len("sentiment_score")),
     }
-
-    # Build aligned string
-    lines = []
     header = f"{'datetime'.ljust(col_widths['datetime'])}  " \
              f"{'category'.ljust(col_widths['category'])}  " \
              f"{'sentiment_score'.ljust(col_widths['sentiment_score'])}  title"
-    lines.append(header)
-
+    lines = [header]
     for _, row in filtered_df.iterrows():
         lines.append(
             f"{str(row['datetime']).ljust(col_widths['datetime'])}  "
@@ -77,7 +85,6 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
             f"{row['title']}"
         )
 
-    # Log the table
     log.info("\nFiltered Market-Moving News:\n%s", "\n".join(lines))
 
     return filtered_df

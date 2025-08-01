@@ -27,10 +27,3 @@ This is **Step 1** of a larger project to build an **AI-powered automated tradin
 - Designed for **multi-year historical backtesting**
 
 ---
-
-## 📂 Example Output
-```csv
-date,time,headline,sentiment,source
-2025-07-31,06:05,"Fed minutes point to rate cut in September",,CNBC
-2025-07-31,07:12,"CPI data shows slower inflation in July",,Bloomberg
-2025-07-31,08:15,"Futures point to higher open as PPI cools",,Yahoo Finance

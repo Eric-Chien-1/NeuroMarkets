@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
-from StocksScraper import StocksScraper
-from NewsScraper import NewsScraper
-from EconomicNewsScraper import EconomicNewsScraper
+from scrapers.StocksScraper import StocksScraper
+from scrapers.NewsScraper import NewsScraper
+from scrapers.EconomicNewsScraper import EconomicNewsScraper
 import traceback
 import yfinance as yf
 

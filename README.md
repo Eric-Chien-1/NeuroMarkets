@@ -1,10 +1,10 @@
-# 📰 News2Moves  
+# 📰 NeuroMarket
 **Turning Headlines into Market Predictions**
 
 ---
 
 ## 📌 Overview
-**News2Moves** is a Python-based tool that collects **historical financial news** and **correlates** it with **S&P 500** and **Nasdaq futures** price action.  
+**NeuroMarket** is a Python-based tool that collects **historical financial news** and **correlates** it with **S&P 500** and **Nasdaq futures** price action.  
 The goal is to uncover patterns between **media sentiment** and **market movement** to help traders make more informed decisions.
 
 This is **Step 1** of a larger project to build an **AI-powered automated trading system**.

@@ -4,6 +4,7 @@ from StocksScraper import StocksScraper
 from NewsScraper import NewsScraper
 from EconomicNewsScraper import EconomicNewsScraper
 import traceback
+import yfinance as yf
 
 app = FastAPI(title="Market News & Analysis API", version="1.0")
 
@@ -22,13 +23,6 @@ def getNews():
 @app.get("/economic-events")
 def getEconomicEvents():
     return es.run()
-
-@app.get("/stocks")
-def getStocks():
-    """Real-time stock/futures snapshot."""
-    return ss.get_realtime_data()
-
-import yfinance as yf
 
 @app.get("/stocks/history")
 def get_stocks_history(

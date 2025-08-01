@@ -71,11 +71,23 @@ def correlate_sentiment_with_price(news_df, price_df):
     # Format datetime for neat display
     merged["datetime"] = merged["datetime"].dt.strftime("%Y-%m-%d %H:%M")
 
-    # Calculate correlation
+       # Calculate correlation
     if merged["sentiment"].notna().sum() > 1 and merged["close"].notna().sum() > 1:
         corr = merged["sentiment"].corr(merged["close"])
     else:
         corr = None
+
+    log.info("Merged sentiment & price data preview:\n%s", merged.to_string(index=False))
+
+    if corr is not None:
+        # Convert to percentage for non-technical users
+        strength_percent = abs(corr) * 100
+        direction = "positive" if corr > 0 else "negative"
+        log.info("Calculated correlation: %.6f", corr)
+        log.info("Correlation strength: %.1f%% (%s)", strength_percent, direction)
+    else:
+        log.info("Calculated correlation: N/A")
+
 
     log.info("Merged sentiment & price data preview:\n%s", merged.to_string(index=False))
     log.info("Calculated correlation: %s", corr if corr is not None else "N/A")

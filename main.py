@@ -28,7 +28,7 @@ INDEX_TICKERS = {
 }
 
 def main():
-    API_KEY = "815b8274e8f94a5db950c060865bb3db"  # Replace with your NewsAPI key
+    API_KEY = " "  # Replace with your NewsAPI key
     DAYS = 30
     CORR_HISTORY_DIR = "data/historical_correlations"
     CHARTS_DIR = "charts"

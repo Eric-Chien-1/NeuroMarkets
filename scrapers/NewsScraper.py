@@ -1,41 +1,48 @@
-# NewsScraper.py
-from gnews import GNews
-from datetime import datetime
-import pytz
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
 
 class NewsScraper:
-    def __init__(self, timezone="US/Eastern", period="1d"):
-        self.tz = pytz.timezone(timezone)
-        self.google_news = GNews(language='en', country='US', period=period, max_results=50)
+    def __init__(self, api_key, query="stock market"):
+        self.api_key = api_key
+        self.query = query
+        self.base_url = "https://newsapi.org/v2/everything"
 
-    def fetch_market_news(self):
-        try:
-            news_list = self.google_news.get_news('stock market OR S&P 500 OR Nasdaq OR Dow Jones OR CPI OR PPI OR FOMC')
-        except Exception as e:
-            print(f"[ERROR] Failed to fetch market news: {e}")
-            return []
+    def scrape_news(self, days=7):
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
 
-        articles = []
-        for item in news_list:
-            try:
-                # Convert datetime to US/Eastern timezone
-                dt = item.get("published date")
-                if isinstance(dt, datetime):
-                    dt = dt.astimezone(self.tz)
-                else:
-                    dt = datetime.now(self.tz)  # fallback
+        params = {
+            "q": self.query,
+            "from": start_date.strftime("%Y-%m-%d"),
+            "to": end_date.strftime("%Y-%m-%d"),
+            "language": "en",
+            "sortBy": "publishedAt",
+            "apiKey": self.api_key,
+            "pageSize": 100
+        }
 
-                articles.append({
-                    "datetime": dt.isoformat(),
-                    "type": "market_news",
-                    "title": item.get("title", ""),
-                    "description": item.get("description", ""),
-                    "link": item.get("url", ""),
-                    "source": item.get("publisher", {}).get("title", "Google News")
-                })
-            except Exception:
-                continue
-        return articles
+        print(f"[INFO] Fetching news from {start_date.date()} to {end_date.date()}...")
+        response = requests.get(self.base_url, params=params)
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch news: {response.status_code} - {response.text}")
 
-    def run(self):
-        return self.fetch_market_news()
+        articles = response.json().get("articles", [])
+        if not articles:
+            raise Exception("No news articles found for the given range.")
+
+        titles, datetimes = [], []
+        for article in articles:
+            title = article.get("title")
+            published_at = article.get("publishedAt")
+            if title and published_at:
+                titles.append(title)
+                datetimes.append(pd.to_datetime(published_at))
+
+        # Always return 'title'
+        df = pd.DataFrame({
+            "datetime": datetimes,
+            "title": titles
+        })
+
+        return df.sort_values("datetime").reset_index(drop=True)

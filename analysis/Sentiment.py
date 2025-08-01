@@ -1,6 +1,6 @@
 import pandas as pd
 from textblob import TextBlob
-from logger import log  # <-- shared logger
+from logger import log 
 
 POSITIVE_KEYWORDS = [
     "earnings beat", "ipo", "record profit", "upgrade", "rate cut", "expands", "surge"

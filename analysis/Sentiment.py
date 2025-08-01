@@ -1,6 +1,6 @@
 import pandas as pd
 from textblob import TextBlob
-from logger import log  # <-- import shared logger
+from logger import log  # <-- shared logger
 
 POSITIVE_KEYWORDS = [
     "earnings beat", "ipo", "record profit", "upgrade", "rate cut", "expands", "surge"
@@ -22,17 +22,9 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("News DataFrame must have a 'title' column for sentiment analysis.")
 
     # Calculate sentiment scores
-    scores = []
-    for text in news_df["title"].fillna(""):
-        score = TextBlob(str(text)).sentiment.polarity
-        scores.append(score)
-
-    news_df["sentiment"] = scores
-    news_df["sentiment_score"] = scores
-
-    # Round for cleaner display
-    news_df["sentiment"] = news_df["sentiment"].round(3)
-    news_df["sentiment_score"] = news_df["sentiment_score"].round(3)
+    scores = [TextBlob(str(t)).sentiment.polarity for t in news_df["title"].fillna("")]
+    news_df["sentiment"] = pd.Series(scores).round(3)
+    news_df["sentiment_score"] = news_df["sentiment"]
 
     # Ensure datetime format
     if "datetime" in news_df.columns:
@@ -45,7 +37,6 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
     def classify_row(row):
         title = row["title"]
         sentiment = row["sentiment_score"]
-
         if matches_keywords(title, ECONOMIC_EVENT_KEYWORDS):
             return "MACRO_EVENT"
         elif sentiment >= 0.5 or matches_keywords(title, POSITIVE_KEYWORDS):
@@ -55,17 +46,38 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
         return None
 
     news_df["category"] = news_df.apply(classify_row, axis=1)
-
     filtered_df = news_df[news_df["category"].notnull()].copy()
 
+    # Summary logging
     log.info(f"Total headlines: {len(news_df)}")
     log.info(f"Market-moving headlines kept: {len(filtered_df)}")
 
-    with pd.option_context("display.max_rows", None,
-                           "display.max_columns", None,
-                           "display.width", 120,
-                           "display.colheader_justify", "center"):
-        log.info("\nFiltered Market-Moving News:")
-        log.info(filtered_df[["datetime", "category", "sentiment_score", "title"]].to_string(index=False))
+    # Format datetime for clean display
+    filtered_df["datetime"] = filtered_df["datetime"].dt.strftime("%Y-%m-%d %H:%M")
+
+    # Auto-adjust spacing
+    col_widths = {
+        "datetime": max(filtered_df["datetime"].str.len().max(), len("datetime")),
+        "category": max(filtered_df["category"].str.len().max(), len("category")),
+        "sentiment_score": max(filtered_df["sentiment_score"].astype(str).str.len().max(), len("sentiment_score")),
+    }
+
+    # Build aligned string
+    lines = []
+    header = f"{'datetime'.ljust(col_widths['datetime'])}  " \
+             f"{'category'.ljust(col_widths['category'])}  " \
+             f"{'sentiment_score'.ljust(col_widths['sentiment_score'])}  title"
+    lines.append(header)
+
+    for _, row in filtered_df.iterrows():
+        lines.append(
+            f"{str(row['datetime']).ljust(col_widths['datetime'])}  "
+            f"{str(row['category']).ljust(col_widths['category'])}  "
+            f"{str(row['sentiment_score']).ljust(col_widths['sentiment_score'])}  "
+            f"{row['title']}"
+        )
+
+    # Log the table
+    log.info("\nFiltered Market-Moving News:\n%s", "\n".join(lines))
 
     return filtered_df

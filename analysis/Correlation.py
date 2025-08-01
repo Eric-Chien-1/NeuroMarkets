@@ -1,4 +1,20 @@
+import os
+import logging
 import pandas as pd
+
+# Ensure logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Configure logger (shared config)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("logs/app.log", mode="a", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+log = logging.getLogger(__name__)
 
 def correlate_sentiment_with_price(news_df, price_df):
     # Reset index if needed
@@ -52,7 +68,7 @@ def correlate_sentiment_with_price(news_df, price_df):
     merged["sentiment"] = merged["sentiment"].round(3)
     merged["close"] = merged["close"].round(2)
 
-    # Format datetime for neat printing
+    # Format datetime for neat display
     merged["datetime"] = merged["datetime"].dt.strftime("%Y-%m-%d %H:%M")
 
     # Calculate correlation
@@ -61,13 +77,7 @@ def correlate_sentiment_with_price(news_df, price_df):
     else:
         corr = None
 
-    # Nicely print with spacing
-    with pd.option_context(
-        "display.max_rows", None,
-        "display.max_columns", None,
-        "display.width", 120,
-        "display.colheader_justify", "center"
-    ):
-        print(merged.to_string(index=False))
+    log.info("Merged sentiment & price data preview:\n%s", merged.to_string(index=False))
+    log.info("Calculated correlation: %s", corr if corr is not None else "N/A")
 
     return corr, merged

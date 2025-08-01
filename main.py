@@ -1,10 +1,23 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import logging
 from scrapers.NewsScraper import NewsScraper
 from scrapers.PriceScrapers import PriceScraper
 from analysis.Sentiment import analyze_sentiment
 from analysis.Correlation import correlate_sentiment_with_price
+
+# Configure logger
+os.makedirs("logs", exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("logs/app.log", mode="a", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+log = logging.getLogger(__name__)
 
 # Tickers for major index futures
 INDEX_TICKERS = {
@@ -15,7 +28,7 @@ INDEX_TICKERS = {
 }
 
 def main():
-    API_KEY = ""  # Replace with your NewsAPI key
+    API_KEY = "815b8274e8f94a5db950c060865bb3db"  # Replace with your NewsAPI key
     DAYS = 30
     CORR_HISTORY_DIR = "data/historical_correlations"
     CHARTS_DIR = "charts"
@@ -24,40 +37,40 @@ def main():
     os.makedirs(CORR_HISTORY_DIR, exist_ok=True)
     os.makedirs(CHARTS_DIR, exist_ok=True)
 
-    # 1️⃣ Fetch and analyze news sentiment
-    print(f"[INFO] Fetching last {DAYS} days of news...")
+    # 1 Fetch and analyze news sentiment
+    log.info(f"Fetching last {DAYS} days of news...")
     ns = NewsScraper(api_key=API_KEY, query="stock market")
     news_df = ns.scrape_news(days=DAYS)
 
     if news_df.empty:
-        print("[WARN] No news found.")
+        log.warning("No news found.")
         return
 
-    print(f"[INFO] {len(news_df)} headlines found.")
-    print("[INFO] Analyzing sentiment...")
+    log.info(f"{len(news_df)} headlines found.")
+    log.info("Analyzing sentiment...")
     news_df = analyze_sentiment(news_df)
 
-    # 2️⃣ Fetch price data for all tickers
+    # 2️ Fetch price data for all tickers
     ps = PriceScraper(list(INDEX_TICKERS.values()))
     price_data = ps.get_historical_data(days=DAYS)
 
-    # 3️⃣ Process each index separately
+    # 3️ Process each index separately
     for index_name, ticker in INDEX_TICKERS.items():
         if ticker not in price_data:
-            print(f"[WARN] No price data for {index_name} ({ticker}), skipping.")
+            log.warning(f"No price data for {index_name} ({ticker}), skipping.")
             continue
 
-        print(f"\n[INFO] Analyzing correlation for {index_name} ({ticker})...")
+        log.info(f"Analyzing correlation for {index_name} ({ticker})...")
         price_df = price_data[ticker]
 
         # Merge and correlate
         corr, merged_df = correlate_sentiment_with_price(news_df, price_df)
-        print(f"[RESULT] {index_name} Sentiment-Price Correlation: {corr}")
+        log.info(f"{index_name} Sentiment-Price Correlation: {corr}")
 
         # Save merged dataset
         merged_file = f"data/correlation_results_{ticker.replace('=','')}.csv"
         merged_df.to_csv(merged_file, index=False)
-        print(f"[INFO] Full correlation dataset saved to {merged_file}")
+        log.info(f"Full correlation dataset saved to {merged_file}")
 
         # Append correlation history
         today = pd.Timestamp.now().normalize()
@@ -72,12 +85,12 @@ def main():
 
         hist_df.drop_duplicates(subset=["date"], keep="last", inplace=True)
         hist_df.to_csv(hist_file, index=False)
-        print(f"[INFO] Correlation history updated for {index_name}.")
+        log.info(f"Correlation history updated for {index_name}.")
 
-        # 📊 Plot sentiment vs price for this index
+        # Plot sentiment vs price for this index
         plot_price_sentiment(merged_df, index_name, ticker, CHARTS_DIR)
 
-        # 📊 Plot correlation history for this index
+        # Plot correlation history for this index
         plot_correlation_history(hist_df, index_name, ticker, CHARTS_DIR)
 
 
@@ -103,7 +116,7 @@ def plot_price_sentiment(merged_df, index_name, ticker, charts_dir):
     chart_path = os.path.join(charts_dir, f"sentiment_price_{ticker.replace('=','')}.png")
     plt.savefig(chart_path)
     plt.close()
-    print(f"[INFO] Sentiment vs Price chart saved to {chart_path}")
+    log.info(f"Sentiment vs Price chart saved to {chart_path}")
 
 
 def plot_correlation_history(hist_df, index_name, ticker, charts_dir):
@@ -124,7 +137,7 @@ def plot_correlation_history(hist_df, index_name, ticker, charts_dir):
     plt.ylabel("Correlation")
     plt.grid(True)
 
-    # Limit x-axis to just the relevant range
+    # Limit x-axis range
     plt.xlim(hist_df["date"].min() - pd.Timedelta(days=5),
              hist_df["date"].max() + pd.Timedelta(days=5))
 
@@ -134,8 +147,7 @@ def plot_correlation_history(hist_df, index_name, ticker, charts_dir):
     chart_path = os.path.join(charts_dir, f"correlation_history_{ticker.replace('=','')}.png")
     plt.savefig(chart_path)
     plt.close()
-    print(f"[INFO] Correlation history chart saved to {chart_path}")
-
+    log.info(f"Correlation history chart saved to {chart_path}")
 
 
 if __name__ == "__main__":

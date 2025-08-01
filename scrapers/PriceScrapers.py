@@ -1,5 +1,21 @@
+import os
 import yfinance as yf
 import pandas as pd
+import logging
+
+# Ensure logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Configure logger (same as main.py and NewsScraper.py)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("logs/app.log", mode="a", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+log = logging.getLogger(__name__)
 
 class PriceScraper:
     def __init__(self, tickers=None):
@@ -32,7 +48,7 @@ class PriceScraper:
                 df = self._get_intraday_data(ticker, period=period, interval=interval)
                 results[ticker] = df
             except Exception as e:
-                print(f"[ERROR] Failed to fetch data for {ticker}: {e}")
+                log.error(f"Failed to fetch data for {ticker}: {e}")
 
         return results
 
@@ -40,7 +56,7 @@ class PriceScraper:
         """
         Fetch historical data for a single ticker and ensure correct datetime formatting.
         """
-        print(f"[INFO] Fetching price data for {ticker} ({period}, {interval})...")
+        log.info(f"Fetching price data for {ticker} ({period}, {interval})...")
 
         df = yf.download(ticker, period=period, interval=interval)
         if df.empty:
@@ -71,4 +87,5 @@ class PriceScraper:
         df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
         df = df.sort_values("datetime").reset_index(drop=True)
 
+        log.info(f"Retrieved {len(df)} rows for {ticker}.")
         return df

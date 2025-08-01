@@ -1,7 +1,7 @@
 import pandas as pd
 from textblob import TextBlob
+from logger import log  # <-- import shared logger
 
-# Keywords for filtering
 POSITIVE_KEYWORDS = [
     "earnings beat", "ipo", "record profit", "upgrade", "rate cut", "expands", "surge"
 ]
@@ -38,12 +38,10 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
     if "datetime" in news_df.columns:
         news_df["datetime"] = pd.to_datetime(news_df["datetime"], errors="coerce")
 
-    # Helper: check if text contains any keyword
     def matches_keywords(text, keywords):
         text_lower = text.lower()
         return any(keyword in text_lower for keyword in keywords)
 
-    # --- Assign categories ---
     def classify_row(row):
         title = row["title"]
         sentiment = row["sentiment_score"]
@@ -54,23 +52,20 @@ def analyze_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
             return "BULLISH"
         elif sentiment <= -0.5 or matches_keywords(title, NEGATIVE_KEYWORDS):
             return "BEARISH"
-        return None  # Not strong enough
+        return None
 
     news_df["category"] = news_df.apply(classify_row, axis=1)
 
-    # Filter to keep only market-moving news
     filtered_df = news_df[news_df["category"].notnull()].copy()
 
-    # Logging
-    print(f"\n[INFO] Total headlines: {len(news_df)}")
-    print(f"[INFO] Market-moving headlines kept: {len(filtered_df)}")
+    log.info(f"Total headlines: {len(news_df)}")
+    log.info(f"Market-moving headlines kept: {len(filtered_df)}")
 
-    # Print summary
     with pd.option_context("display.max_rows", None,
                            "display.max_columns", None,
                            "display.width", 120,
                            "display.colheader_justify", "center"):
-        print("\n[INFO] Filtered Market-Moving News:")
-        print(filtered_df[["datetime", "category", "sentiment_score", "title"]].to_string(index=False))
+        log.info("\nFiltered Market-Moving News:")
+        log.info(filtered_df[["datetime", "category", "sentiment_score", "title"]].to_string(index=False))
 
     return filtered_df

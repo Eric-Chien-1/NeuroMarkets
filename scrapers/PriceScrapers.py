@@ -5,12 +5,12 @@ class PriceScraper:
     def __init__(self, ticker="ES=F"):
         self.ticker = ticker
 
-    def get_historical_data(self, days=7):
+    def get_historical_data(self, days=30):
         """
         Automatically picks the right Yahoo Finance interval
         and fetches intraday or daily historical data.
         """
-        if days <= 7:
+        if days <= 30:
             # Intraday
             interval = "30m"
             period = f"{days}d"
@@ -26,7 +26,7 @@ class PriceScraper:
 
         return self.get_intraday_data(period=period, interval=interval)
 
-    def get_intraday_data(self, period="7d", interval="30m"):
+    def get_intraday_data(self, period="30d", interval="30m"):
         """
         Fetches historical price data and ensures a proper datetime column.
         """

@@ -8,7 +8,7 @@ class NewsScraper:
         self.query = query
         self.base_url = "https://newsapi.org/v2/everything"
 
-    def scrape_news(self, days=7):
+    def scrape_news(self, days=30):
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=days)
 

@@ -1,20 +1,30 @@
 import os
 import pandas as pd
-from datetime import datetime
 import matplotlib.pyplot as plt
-
 from scrapers.NewsScraper import NewsScraper
 from scrapers.PriceScrapers import PriceScraper
 from analysis.Sentiment import analyze_sentiment
 from analysis.Correlation import correlate_sentiment_with_price
 
+# Tickers for major index futures
+INDEX_TICKERS = {
+    "S&P 500": "ES=F",
+    "NASDAQ 100": "NQ=F",
+    "Dow Jones": "YM=F",
+    "Russell 2000": "RTY=F"
+}
 
 def main():
     API_KEY = "815b8274e8f94a5db950c060865bb3db"  # Replace with your NewsAPI key
     DAYS = 30
-    CORR_HISTORY_FILE = "data/historical_correlations.csv"
+    CORR_HISTORY_DIR = "data/historical_correlations"
+    CHARTS_DIR = "charts"
 
-    # 1️⃣ Fetch historical news
+    os.makedirs("data", exist_ok=True)
+    os.makedirs(CORR_HISTORY_DIR, exist_ok=True)
+    os.makedirs(CHARTS_DIR, exist_ok=True)
+
+    # 1️⃣ Fetch and analyze news sentiment
     print(f"[INFO] Fetching last {DAYS} days of news...")
     ns = NewsScraper(api_key=API_KEY, query="stock market")
     news_df = ns.scrape_news(days=DAYS)
@@ -27,80 +37,54 @@ def main():
     print("[INFO] Analyzing sentiment...")
     news_df = analyze_sentiment(news_df)
 
-    # 2️⃣ Fetch historical prices
-    print("[INFO] Fetching historical market price data...")
-    ps = PriceScraper(ticker="ES=F")  # S&P 500 futures
-    price_df = ps.get_historical_data(days=DAYS)
+    # 2️⃣ Fetch price data for all tickers
+    ps = PriceScraper(list(INDEX_TICKERS.values()))
+    price_data = ps.get_historical_data(days=DAYS)
 
-    if price_df.empty:
-        print("[WARN] No price data found.")
-        return
+    # 3️⃣ Process each index separately
+    for index_name, ticker in INDEX_TICKERS.items():
+        if ticker not in price_data:
+            print(f"[WARN] No price data for {index_name} ({ticker}), skipping.")
+            continue
 
-    # 3️⃣ Calculate correlation
-    print("[INFO] Calculating correlation...")
-    corr, merged_df = correlate_sentiment_with_price(news_df, price_df)
-    print(f"[RESULT] Sentiment-Price Correlation: {corr}")
+        print(f"\n[INFO] Analyzing correlation for {index_name} ({ticker})...")
+        price_df = price_data[ticker]
 
-    # 4️⃣ Save merged daily results
-    os.makedirs("data", exist_ok=True)
-    merged_df.to_csv("data/correlation_results.csv", index=False)
-    print("[INFO] Full correlation dataset saved to data/correlation_results.csv")
+        # Merge and correlate
+        corr, merged_df = correlate_sentiment_with_price(news_df, price_df)
+        print(f"[RESULT] {index_name} Sentiment-Price Correlation: {corr}")
 
-    # 5️⃣ Append correlation history (store as datetime64)
-    today = pd.Timestamp.now().normalize()  # keeps datetime64 format
-    corr_entry = pd.DataFrame([{"date": today, "correlation": corr}])
+        # Save merged dataset
+        merged_file = f"data/correlation_results_{ticker.replace('=','')}.csv"
+        merged_df.to_csv(merged_file, index=False)
+        print(f"[INFO] Full correlation dataset saved to {merged_file}")
 
-    if os.path.exists(CORR_HISTORY_FILE):
-        hist_df = pd.read_csv(CORR_HISTORY_FILE, parse_dates=["date"])
-        hist_df = pd.concat([hist_df, corr_entry], ignore_index=True)
-    else:
-        hist_df = corr_entry
+        # Append correlation history
+        today = pd.Timestamp.now().normalize()
+        hist_file = os.path.join(CORR_HISTORY_DIR, f"{ticker.replace('=','')}_history.csv")
 
-    hist_df.drop_duplicates(subset=["date"], keep="last", inplace=True)
-    hist_df.to_csv(CORR_HISTORY_FILE, index=False)
-    print("[INFO] Correlation history updated.")
+        corr_entry = pd.DataFrame([{"date": today, "correlation": corr}])
+        if os.path.exists(hist_file):
+            hist_df = pd.read_csv(hist_file, parse_dates=["date"])
+            hist_df = pd.concat([hist_df, corr_entry], ignore_index=True)
+        else:
+            hist_df = corr_entry
 
-   # 6️⃣ Plot price vs sentiment
-    plot_price_sentiment(merged_df)
+        hist_df.drop_duplicates(subset=["date"], keep="last", inplace=True)
+        hist_df.to_csv(hist_file, index=False)
+        print(f"[INFO] Correlation history updated for {index_name}.")
 
-    # 7️⃣ Plot correlation history trend
-    plot_correlation_history(hist_df)
+        # 📊 Plot sentiment vs price for this index
+        plot_price_sentiment(merged_df, index_name, ticker, CHARTS_DIR)
 
-def plot_price_sentiment_correlation(merged_df):
+        # 📊 Plot correlation history for this index
+        plot_correlation_history(hist_df, index_name, ticker, CHARTS_DIR)
+
+
+def plot_price_sentiment(merged_df, index_name, ticker, charts_dir):
     """
-    Plots Sentiment Score vs Price for the merged dataset
-    to visually see intraday correlation.
+    Plots sentiment score vs market price over time for a given index.
     """
-    import matplotlib.pyplot as plt
-    import os
-    import pandas as pd
-
-    if "sentiment" not in merged_df.columns:
-        raise ValueError("Merged dataset does not have a 'sentiment' column.")
-
-    # Make sure datetime is in datetime format
-    merged_df["datetime"] = pd.to_datetime(merged_df["datetime"], errors="coerce")
-
-    plt.figure(figsize=(10, 5))
-    plt.scatter(merged_df["sentiment"], merged_df["close"], alpha=0.5, color="purple")
-    plt.title("Sentiment vs Price (Intraday)")
-    plt.xlabel("Sentiment Score")
-    plt.ylabel("Price (Close)")
-    plt.grid(True)
-
-    # Calculate and annotate correlation
-    corr = merged_df["sentiment"].corr(merged_df["close"])
-    plt.annotate(f"Correlation = {corr:.3f}", xy=(0.05, 0.95), xycoords="axes fraction",
-                 fontsize=12, ha="left", va="top", bbox=dict(boxstyle="round", fc="w"))
-
-    os.makedirs("charts", exist_ok=True)
-    chart_path = "charts/sentiment_price_intraday.png"
-    plt.savefig(chart_path)
-    print(f"[INFO] Sentiment vs Price chart saved to {chart_path}")
-    plt.close()
-
-
-def plot_price_sentiment(merged_df):
     if "sentiment_score" not in merged_df.columns:
         if "sentiment" in merged_df.columns:
             merged_df["sentiment_score"] = merged_df["sentiment"]
@@ -110,31 +94,48 @@ def plot_price_sentiment(merged_df):
     plt.figure(figsize=(10, 5))
     plt.plot(merged_df["datetime"], merged_df["close"], label="Price (Close)", color="blue")
     plt.plot(merged_df["datetime"], merged_df["sentiment_score"], label="Sentiment Score", color="orange")
+    plt.title(f"{index_name} - Sentiment vs Price")
+    plt.xlabel("Date/Time")
+    plt.ylabel("Value")
     plt.legend()
-    plt.show()
+    plt.grid(True)
+
+    chart_path = os.path.join(charts_dir, f"sentiment_price_{ticker.replace('=','')}.png")
+    plt.savefig(chart_path)
+    plt.close()
+    print(f"[INFO] Sentiment vs Price chart saved to {chart_path}")
 
 
-def plot_correlation_history(hist_df):
-    """
-    Plots the historical correlation trend over time.
-    """
-    # Ensure proper datetime type
+def plot_correlation_history(hist_df, index_name, ticker, charts_dir):
     hist_df["date"] = pd.to_datetime(hist_df["date"], errors="coerce")
 
     plt.figure(figsize=(10, 5))
-    plt.plot(hist_df["date"], hist_df["correlation"], marker="o", linestyle="-", color="purple")
+    plt.plot(hist_df["date"], hist_df["correlation"], marker="o", markersize=8, color="purple", linestyle="-")
     plt.axhline(0, color="gray", linestyle="--", linewidth=1)
-    plt.title("Sentiment-Price Correlation Over Time")
+
+    # Label last point
+    if not hist_df.empty:
+        last_row = hist_df.iloc[-1]
+        plt.text(last_row["date"], last_row["correlation"], f"{last_row['correlation']:.3f}",
+                 fontsize=10, color="purple", weight="bold", ha="left", va="bottom")
+
+    plt.title(f"{index_name} - Sentiment-Price Correlation Over Time")
     plt.xlabel("Date")
     plt.ylabel("Correlation")
     plt.grid(True)
+
+    # Limit x-axis to just the relevant range
+    plt.xlim(hist_df["date"].min() - pd.Timedelta(days=5),
+             hist_df["date"].max() + pd.Timedelta(days=5))
+
     plt.tight_layout()
 
-    os.makedirs("charts", exist_ok=True)
-    chart_path = "charts/correlation_history.png"
+    os.makedirs(charts_dir, exist_ok=True)
+    chart_path = os.path.join(charts_dir, f"correlation_history_{ticker.replace('=','')}.png")
     plt.savefig(chart_path)
-    print(f"[INFO] Correlation history chart saved to {chart_path}")
     plt.close()
+    print(f"[INFO] Correlation history chart saved to {chart_path}")
+
 
 
 if __name__ == "__main__":
